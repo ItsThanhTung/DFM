@@ -1,0 +1,2 @@
+---
+dir: experiments_out/${now:%Y-%m-%d}/${now:%H-%M-%S}

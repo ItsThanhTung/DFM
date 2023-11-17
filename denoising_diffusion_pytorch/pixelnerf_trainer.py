@@ -19,8 +19,8 @@ from accelerate import Accelerator
 from torchvision.utils import make_grid
 
 from denoising_diffusion_pytorch.version import __version__
+from logger.logger import Logger
 
-import wandb
 import sys
 import os
 import imageio
@@ -152,7 +152,7 @@ class Trainer(object):
         split_batches=True,
         warmup_period=0,
         checkpoint_path=None,
-        wandb_config=None,
+        logdir=None,
         run_name="pixelnerf",
     ):
         super().__init__()
@@ -220,15 +220,16 @@ class Trainer(object):
             # self.load_from_external_checkpoint(checkpoint_path)
 
         if self.accelerator.is_main_process:
-            run = wandb.init(**wandb_config)
-            wandb.run.log_code(".")
-            wandb.run.name = run_name
-            print(f"run dir: {run.dir}")
-            run_dir = run.dir
-            wandb.save(os.path.join(run_dir, "checkpoint*"))
-            wandb.save(os.path.join(run_dir, "video*"))
-            self.results_folder = Path(run_dir)
+            from torch.utils.tensorboard import SummaryWriter
+            self.logger = Logger(logdir)
+
+            print(f"run dir: {logdir}")
+            self.run_dir = logdir
+            self.ckpt_dir = os.path.join(self.run_dir, "checkpoint")
+            self.video_dir = os.path.join(self.run_dir, "video")
+            self.results_folder = Path(self.run_dir)
             self.results_folder.mkdir(exist_ok=True)
+
 
     def save(self, milestone):
         if not self.accelerator.is_local_main_process:
@@ -245,14 +246,13 @@ class Trainer(object):
             "version": __version__,
         }
 
-        torch.save(data, str(self.results_folder / f"model-{milestone}.pt"))
+        torch.save(data, os.path.join(self.ckpt_dir, f"model-{milestone}.pt"))
 
     def load(self, path):
         accelerator = self.accelerator
         device = accelerator.device
 
         data = torch.load(
-            # str(self.results_folder / f"model-{milestone}.pt"), map_location=device
             str(path),
             map_location=device,
         )
@@ -374,17 +374,16 @@ class Trainer(object):
                     self.accelerator.backward(loss)
 
                 if accelerator.is_main_process:
-                    wandb.log(
-                        {
-                            "loss": total_loss,
-                            "rgb_loss": total_rgb_loss,
-                            "dist_loss": total_dist_loss,
-                            "lpips_loss": total_lpips_loss,
-                            "lr": self.lr_scheduler.get_last_lr()[0],
-                            "dist_weight": dist_weight,
-                        },
-                        step=self.step,
-                    )
+                    log_dict = {
+                                        "loss": total_loss,
+                                        "rgb_loss": total_rgb_loss,
+                                        "dist_loss": total_dist_loss,
+                                        "lpips_loss": total_lpips_loss,
+                                        "dist_weight": dist_weight,
+                                        "lr": self.lr_scheduler.get_last_lr()[0],
+                                    }
+
+                    self.logger.add_scalars(log_dict, global_step=self.step)
 
                 accelerator.clip_grad_norm_(self.model.parameters(), 1.0)
                 pbar.set_description(f"loss: {total_loss:.4f}")
@@ -403,7 +402,7 @@ class Trainer(object):
                     self.ema.update()
 
                     if self.step % self.wandb_every == 0:
-                        self.wandb_summary(misc)
+                        self.logger_summary(misc)
 
                     if self.step != 0 and self.step % self.save_every == 0:
                         milestone = self.step // self.save_every
@@ -415,8 +414,8 @@ class Trainer(object):
 
         accelerator.print("training complete")
 
-    def wandb_summary(self, misc):
-        print("wandb summary")
+    def logger_summary(self, misc):
+        print("logger summary")
         (sampled_output, t_gt, ctxt_rgb, t, depth, output, frames,) = misc
 
         log_dict = {
@@ -431,6 +430,7 @@ class Trainer(object):
             "sanity/depth_min": depth.min(),
             "sanity/depth_max": depth.max(),
         }
+        self.logger.add_scalars(log_dict, self.step)
 
         t_gt = rearrange(t_gt, "b t c h w -> (b t) c h w")
         ctxt_rgb = rearrange(ctxt_rgb, "b t c h w -> (b t) c h w")
@@ -438,29 +438,20 @@ class Trainer(object):
         depth = torch.from_numpy(
             jet_depth(depth.cpu().detach().view(-1, h, w))
         ).permute(0, 3, 1, 2)
-        depths = make_grid(depth)
-        depths = wandb.Image(depths.permute(1, 2, 0).numpy())
 
+        depths = make_grid(depth)
+        output = make_grid(output.cpu().detach())
+        t_gt = make_grid(t_gt.cpu().detach())
+        ctxt_rgb = make_grid(ctxt_rgb.cpu().detach())
+        
         image_dict = {
             "visualization/depth": depths,
-            "visualization/output": wandb.Image(
-                make_grid(output.cpu().detach()).permute(1, 2, 0).numpy()
-            ),
-            "visualization/target": wandb.Image(
-                make_grid(t_gt.cpu().detach()).permute(1, 2, 0).numpy()
-            ),
-            "visualization/ctxt_rgb": wandb.Image(
-                make_grid(ctxt_rgb.cpu().detach()).permute(1, 2, 0).numpy()
-            ),
+            "visualization/output": output,
+            "visualization/target": t_gt,
+            "visualization/ctxt_rgb": ctxt_rgb,
         }
 
-        wandb.log(log_dict)
-        wandb.log(image_dict)
+        
+        self.logger.add_images(image_dict, self.step)
+        self.logger.add_videos("denoised_view_circle", frames, self.step)
 
-        run_dir = wandb.run.dir
-        denoised_f = os.path.join(run_dir, "denoised_view_circle.mp4")
-        imageio.mimwrite(denoised_f, frames, fps=8, quality=7)
-
-        wandb.log(
-            {"vid/rendered_view_circle": wandb.Video(denoised_f, format="mp4", fps=8),}
-        )

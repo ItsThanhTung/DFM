@@ -1,5 +1,6 @@
 import sys
 import os
+import datetime
 import hydra
 from omegaconf import DictConfig
 from torch.utils.data import DataLoader
@@ -11,7 +12,7 @@ from denoising_diffusion_pytorch.pixelnerf_trainer import (
     Trainer,
 )
 import data_io
-from PixelNeRF import PixelNeRFModelVanilla
+from PixelNeRF.pixelnerf_model import PixelNeRFModelVanilla
 import platform
 from accelerate import DistributedDataParallelKwargs
 from accelerate import Accelerator
@@ -62,10 +63,13 @@ def train(cfg: DictConfig):
         use_high_res_feats=True
     ).cuda()
 
+    now = datetime.datetime.now().strftime("%d-%m-%Y:%H-%M-%S")
+    logdir = os.path.join(os.getcwd(), cfg.logdir, cfg.name, now)
     modelwrapper = PixelNeRFModelWrapper(
         model, image_size=dataset.image_size, loss_type="l2",  # L1 or L2
     ).cuda()
     print(f"using lr {cfg.lr}")
+    print(f"logging at {logdir}")
     trainer = Trainer(
         reconstruction_model=modelwrapper,
         accelerator=accelerator,
@@ -82,7 +86,7 @@ def train(cfg: DictConfig):
         num_samples=2,
         warmup_period=1_000,
         checkpoint_path=cfg.checkpoint_path,
-        wandb_config=cfg.wandb,
+        logdir=logdir,
         run_name=cfg.name,
     )
 

@@ -123,9 +123,8 @@ class PixelNeRFModel(nn.Module):
                 model_input["trgt_rgb"].shape[-2],
                 model_input["trgt_rgb"].shape[-1],
             )
-            rgb = rearrange(rgb, "b c h w -> b h w c")
-            rgb = rgb * 255.0
-            frames.append(rgb.float().cpu().detach().numpy()[0].astype(np.uint8))
+            frames.append(rgb)
+        frames = rearrange(torch.stack(frames), "t b c h w -> b  t c h w") 
         return frames
 
     @torch.no_grad()
@@ -217,7 +216,7 @@ class PixelNeRFModelVanilla(PixelNeRFModel):
             backgrd_color=background_color,
             lindisp=lindisp,
         ).cuda()
-        self.len_render = 20
+        self.len_render = 16
         self.num_render_pixels = self.len_render ** 2  # 36 x36 pixels
         self.channels = channels
         self.out_dim = channels

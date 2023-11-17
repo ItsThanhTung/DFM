@@ -1,13 +1,13 @@
 defaults:
-  - wandb: local
   - dataset: celeba
 max_scenes: null
 use_first_pool: false
 
 lr: 2e-5
+name: null
+logdir: exp
 
 checkpoint_path: null
-name: null
 batch_size: 12
 num_target: 2
 wandb_every: 500

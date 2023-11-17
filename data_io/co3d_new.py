@@ -573,6 +573,32 @@ def test_dataloader(dataset_root, categories):
     print(dataset[0])
 
 
+# if __name__ == '__main__':
+#     import argparse
+#     parser = argparse.ArgumentParser()
+#     parser.add_argument('--generate_info_file', action='store_true')
+#     parser.add_argument('--generate_camera_quality_file', action='store_true')
+#     parser.add_argument("--generate_per_scene_scale", action="store_true")
+#     parser.add_argument("--all_classes", action="store_true")
+#     parser.add_argument("--dataset_root", type=str, required=True)
+#     args = parser.parse_args()
+
+#     if args.all_classes:
+#         categories = ["apple", "ball",  "bench",  "cake",  "donut",  "hydrant", "plant", "suitcase", "teddybear", "vase"]
+#     else:
+#         categories = ["hydrant"] 
+
+#     if args.generate_info_file:
+#         init_info_file(categories, args.dataset_root)
+
+#     if args.generate_camera_quality_file:
+#         compute_camera_quality_score(categories, args.dataset_root)
+
+#     if args.generate_per_scene_scale:
+#         compute_scene_scale(categories, args.dataset_root)
+
+#     test_dataloader(args.dataset_root, categories) 
+
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
