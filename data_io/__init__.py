@@ -47,4 +47,12 @@ def get_dataset(config: DictConfig) -> Dataset:
             noise=config.noise,
             eval_10_frame=config.eval_10_frame,
         )
+    elif name == "shapenet":
+        return CO3DDataset(
+            root=config.path,
+            num_context=config.num_context,
+            num_target=config.num_target,
+            stage=config.stage,
+            eval_10_frame=config.eval_10_frame,
+        )
     raise NotImplementedError(f'Dataset "{name}" not supported.')

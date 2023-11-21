@@ -1,0 +1,1 @@
+torchrun  --nnodes 1 --nproc_per_node 1 experiment_scripts/train_pixelnerf.py dataset=shapenet name=pn_shapenet_2ctxt num_context=2 num_target=2 lr=2e-5 batch_size=2 use_abs_pose=true scale_aug_ratio=0.2
