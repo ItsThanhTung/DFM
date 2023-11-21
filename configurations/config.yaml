@@ -1,11 +1,16 @@
 defaults:
   - dataset: celeba
+
+logdir: exp
+name: name
+hydra:
+  run:
+    dir: ${logdir}/${name}/${now:%Y-%m-%d-%H-%M-%S}
+
 max_scenes: null
 use_first_pool: false
 
 lr: 2e-5
-name: null
-logdir: exp
 
 checkpoint_path: null
 batch_size: 12

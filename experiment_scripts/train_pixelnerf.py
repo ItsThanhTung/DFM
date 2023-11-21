@@ -63,8 +63,7 @@ def train(cfg: DictConfig):
         use_high_res_feats=True
     ).cuda()
 
-    now = datetime.datetime.now().strftime("%d-%m-%Y:%H-%M-%S")
-    logdir = os.path.join(os.getcwd(), cfg.logdir, cfg.name, now)
+    logdir = hydra.core.hydra_config.HydraConfig.get().runtime.output_dir
     modelwrapper = PixelNeRFModelWrapper(
         model, image_size=dataset.image_size, loss_type="l2",  # L1 or L2
     ).cuda()

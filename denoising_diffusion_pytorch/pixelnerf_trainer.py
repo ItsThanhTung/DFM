@@ -229,6 +229,8 @@ class Trainer(object):
             self.video_dir = os.path.join(self.run_dir, "video")
             self.results_folder = Path(self.run_dir)
             self.results_folder.mkdir(exist_ok=True)
+            os.makedirs(self.ckpt_dir, exist_ok=True)
+            os.makedirs(self.video_dir, exist_ok=True)
 
 
     def save(self, milestone):
